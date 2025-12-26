@@ -666,13 +666,103 @@ que sejam necessárias.
 
 \subsection*{Problema 1}
 
+\subsection*{Problema 1}
+
+Uma travessia em largura (breadth-first) de uma árvore processa os nós nível por nível,
+começando pela raiz. Existem diferentes formas de implementar esta travessia,
+cada uma explorando um combinador recursivo distinto.
+
+\textbf{Primeira abordagem: catamorfismo de árvores}
+
+A função |levels| agrupa elementos por profundidade, retornando uma lista de listas onde cada
+sub-lista representa um nível. Depois, |bfsLevels| concatena simplesmente estes níveis numa única
+lista, obtendo o resultado breadth-first.
+
+Embora o resultado final seja breadth-first, o catamorfismo processa internamente a árvore de baixo
+para cima (visitando primeiro as subárvores). Quando chegamos a um nó, temos já processadas
+as subárvores esquerda e direita, recebendo listas de níveis para cada uma. O nó atual forma um novo
+nível no topo, e os restantes níveis são fundidos par a par através de |zipLevels|, alinhando elementos
+da mesma profundidade das duas subárvores.
+
+\textbf{Segunda abordagem: anamorfismo de listas}
+
+A função |bft| implementa uma travessia breadth-first através de um anamorfismo que utiliza uma fila
+de árvores. Ao contrário do catamorfismo que destrói a estrutura, o anamorfismo constrói
+incrementalmente a lista resultado.
+
+O algoritmo funciona da seguinte forma: iniciamos com uma fila contendo apenas a raiz da árvore.
+Depois, repetidamente, removemos a árvore da frente da fila. Se for |Empty|, ignoramo-la e prosseguimos.
+Se for um nó |Node|, extraímos o seu valor (que é emitido para a lista resultado) e adicionamos
+os seus filhos no \emph{fim} da fila. Este regime FIFO (first-in-first-out) garante que visitamos
+os nós exactamente na ordem breadth-first: primeiro todos os nós do nível 0 (raiz), depois nível 1,
+depois nível 2, e assim sucessivamente.
+
+Implementação:
 \begin{code}
-
-glevels = undefined
-
-bft t = undefined 
-
+glevels :: Either () (a, ([[a]], [[a]])) -> [[a]]
+glevels (Left ()) = []
+glevels (Right (a, (ls, rs))) = [a] : zipLevels ls rs
+  where
+    zipLevels [] rs = rs
+    zipLevels ls [] = ls
+    zipLevels (l:ls) (r:rs) = (l ++ r) : zipLevels ls rs
 \end{code}
+
+\begin{code}
+bft t = anaList gbf [t]
+  where
+    gbf [] = Left ()
+    gbf (Empty : ts) = gbf ts
+    gbf (Node (a, (l, r)) : ts) = Right (a, ts ++ [l, r])
+\end{code}
+
+Diagramas e Propriedades:
+
+Catamorfismo |levels|:
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |BTree a|
+           \ar[d]_-{|levels|}
+&
+    |1 + a >< (BTree a >< BTree a)|
+           \ar[d]^{|id + id >< (levels >< levels)|}
+           \ar[l]_-{|outBTree|}
+\\
+     |[[a]]|
+&
+     |1 + a >< ([[a]] >< [[a]])|
+           \ar[l]^-{|glevels|}
+}
+\end{eqnarray*}
+
+O diagrama mostra como |levels| decompõe a árvore (via |outBTree|),
+aplica |levels| recursivamente às subárvores,
+e depois combina o resultado usando |glevels|.
+O gene |glevels| trata dois casos: árvore vazia (retorna lista vazia)
+e nó com valor |a| e subárvores processadas (cria um novo nível com |a| e funde os restantes).
+
+Anamorfismo |bft|:
+\begin{eqnarray*}
+\xymatrix@@C=2cm{
+    |[BTree a]|
+           \ar[d]_-{|anaList gbf|}
+&
+    |1 + a >< [BTree a]|
+           \ar[d]^{|id + id >< anaList gbf|}
+           \ar[l]_-{|gbf|}
+\\
+     |[a]|
+&
+     |1 + a >< [a]|
+           \ar[l]^-{|inList|}
+}
+\end{eqnarray*}
+
+O gene |gbf| define o passo de construção da lista. A fila de árvores é consumida por três casos:
+se está vazia, o processo termina (|Left ()|); se contém uma árvore vazia, ignoramo-la recursivamente;
+se contém um nó, emitimos o seu valor e continuamos com os restantes elementos da fila mais os seus filhos.
+A operação |ts ++ [l, r]| é essencial: coloca os filhos no fim, não no início, mantendo a ordem breadth-first.
+
 
 \subsection*{Problema 2}
 
